@@ -54,7 +54,7 @@ pub enum SessionCommand {
     SetNodeAttrBool,
     SetNodeAttrFloats,
     SetNodeAttrInt32s,
-    SetNodeAttrString,
+    SetNodeAttrString(String),
     SetNodeAttrNode,
     SetNodeAttrNodeNull,
     SetNodeAttrNodes,

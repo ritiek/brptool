@@ -29,7 +29,14 @@ fn parse_to_session_command(command: &[u8]) -> SessionCommand {
         23 => SessionCommand::SetNodeAttrBool,
         24 => SessionCommand::SetNodeAttrFloats,
         25 => SessionCommand::SetNodeAttrInt32s,
-        26 => SessionCommand::SetNodeAttrString,
+        26 => {
+            let string = command[13..]
+                .iter()
+                .take_while(|&&c| c != 0)
+                .map(|&c| c as char)
+                .collect::<String>();
+            SessionCommand::SetNodeAttrString(string)
+        }
         27 => SessionCommand::SetNodeAttrNode,
         28 => SessionCommand::SetNodeAttrNodeNull,
         29 => SessionCommand::SetNodeAttrNodes,
