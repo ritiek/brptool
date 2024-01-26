@@ -2,6 +2,7 @@ use anyhow::Result;
 use binrw::{BinRead, BinReaderExt};
 use std::io::{Read, Seek};
 
+use crate::consts::BaMessage;
 use crate::error::BrpError;
 use crate::huffman::Huffman;
 use crate::session::handle_session_message;
@@ -39,7 +40,8 @@ fn read_message_length<T: Read>(stream: &mut T) -> Result<u32> {
     }
 }
 
-fn load_replay_messages<T: Read>(mut stream: T) -> Result<()> {
+fn load_replay_messages<T: Read>(mut stream: T) -> Result<Vec<BaMessage>> {
+    let mut messages: Vec<BaMessage> = Vec::new();
     let huffman = Huffman::build();
     loop {
         let length = match read_message_length(&mut stream) {
@@ -51,14 +53,14 @@ fn load_replay_messages<T: Read>(mut stream: T) -> Result<()> {
         // println!("msg {} bytes", length);
         let data = huffman.decompress(&buf);
         // println!("data: {:?}", data);
-        handle_session_message(&data);
+        let message = handle_session_message(&data);
+        messages.push(message);
         // break;
     }
-
-    Ok(())
+    Ok(messages)
 }
 
-pub fn load_replay<T: Read + Seek>(mut stream: T) -> Result<()> {
+pub fn load_replay<T: Read + Seek>(mut stream: T) -> Result<Vec<BaMessage>> {
     let header: BrpHeader = stream.read_ne()?;
 
     if header.magic != BRP_FILE_ID {
@@ -69,7 +71,5 @@ pub fn load_replay<T: Read + Seek>(mut stream: T) -> Result<()> {
         return Err(BrpError::UnsupportedProtocolVersion(header.protocol_version).into());
     }
 
-    load_replay_messages(stream)?;
-
-    Ok(())
+    load_replay_messages(stream)
 }
