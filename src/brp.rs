@@ -11,9 +11,25 @@ const BRP_FILE_ID: u32 = 83749;
 const TARGET_PROTOCOL_VERSION: u16 = 33;
 
 #[derive(BinRead, Debug)]
-struct BrpHeader {
-    magic: u32,
-    protocol_version: u16,
+pub struct BrpHeader {
+    pub file_id: u32,
+    pub protocol_version: u16,
+}
+
+pub struct BaMessages<T: Read>(T);
+
+impl<T: Read> Iterator for BaMessages<T> {
+    type Item = BaMessage;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let message = load_replay_message(&mut self.0);
+        message.ok()
+    }
+}
+
+pub struct Replay<T: Read> {
+    pub messages: BaMessages<T>,
+    pub header: BrpHeader,
 }
 
 fn read_message_length<T: Read>(stream: &mut T) -> Result<u32> {
@@ -40,30 +56,19 @@ fn read_message_length<T: Read>(stream: &mut T) -> Result<u32> {
     }
 }
 
-fn load_replay_messages<T: Read>(mut stream: T) -> Result<Vec<BaMessage>> {
-    let mut messages: Vec<BaMessage> = Vec::new();
+fn load_replay_message<T: Read>(mut stream: T) -> Result<BaMessage> {
     let huffman = Huffman::build();
-    loop {
-        let length = match read_message_length(&mut stream) {
-            Ok(r) => r,
-            Err(_) => break,
-        };
-        let mut buf = vec![0; length as usize];
-        stream.read_exact(&mut buf)?;
-        // println!("msg {} bytes", length);
-        let data = huffman.decompress(&buf);
-        // println!("data: {:?}", data);
-        let message = handle_session_message(&data);
-        messages.push(message);
-        // break;
-    }
-    Ok(messages)
+    let length = read_message_length(&mut stream)?;
+    let mut buf = vec![0; length as usize];
+    stream.read_exact(&mut buf)?;
+    let data = huffman.decompress(&buf);
+    Ok(handle_session_message(&data))
 }
 
-pub fn load_replay<T: Read + Seek>(mut stream: T) -> Result<Vec<BaMessage>> {
+pub fn load_replay<T: Read + Seek>(mut stream: T) -> Result<Replay<T>> {
     let header: BrpHeader = stream.read_ne()?;
 
-    if header.magic != BRP_FILE_ID {
+    if header.file_id != BRP_FILE_ID {
         return Err(BrpError::NotABrpFile.into());
     }
 
@@ -71,5 +76,11 @@ pub fn load_replay<T: Read + Seek>(mut stream: T) -> Result<Vec<BaMessage>> {
         return Err(BrpError::UnsupportedProtocolVersion(header.protocol_version).into());
     }
 
-    load_replay_messages(stream)
+    let messages = BaMessages(stream);
+    let replay = Replay {
+        messages,
+        header,
+    };
+
+    Ok(replay)
 }

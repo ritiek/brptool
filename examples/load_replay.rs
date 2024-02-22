@@ -18,8 +18,14 @@ fn main() -> Result<()> {
     let args = CliArgs::parse();
 
     let file = File::open(args.path)?;
-    let messages = load_replay(file)?;
-    dbg!(messages);
+    let replay = load_replay(file)?;
+
+    dbg!(replay.header.file_id);
+    dbg!(replay.header.protocol_version);
+
+    for message in replay.messages {
+        dbg!(message);
+    }
 
     Ok(())
 }
