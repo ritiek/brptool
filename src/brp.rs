@@ -1,14 +1,14 @@
 use anyhow::Result;
-use binrw::{BinRead, BinReaderExt};
-use std::io::{Read, Seek};
+use binrw::BinRead;
+use std::io::Read;
 
 use crate::consts::BaMessage;
 use crate::error::BrpError;
 use crate::huffman::Huffman;
 use crate::session::handle_session_message;
 
-const BRP_FILE_ID: u32 = 83749;
-const TARGET_PROTOCOL_VERSION: u16 = 33;
+pub const BRP_FILE_ID: u32 = 83749;
+pub const TARGET_PROTOCOL_VERSION: u16 = 33;
 
 #[derive(BinRead, Debug)]
 pub struct BrpHeader {
@@ -65,8 +65,19 @@ fn load_replay_message<T: Read>(mut stream: T) -> Result<BaMessage> {
     Ok(handle_session_message(&data))
 }
 
-pub fn load_replay<T: Read + Seek>(mut stream: T) -> Result<Replay<T>> {
-    let header: BrpHeader = stream.read_ne()?;
+pub fn load_replay<T: Read>(mut stream: T) -> Result<Replay<T>> {
+    let mut file_id_le: [u8; 4] = [0; 4];
+    stream.read_exact(&mut file_id_le)?;
+    let file_id = u32::from_le_bytes(file_id_le);
+
+    let mut protocol_version_le: [u8; 2] = [0; 2];
+    stream.read_exact(&mut protocol_version_le)?;
+    let protocol_version = u16::from_le_bytes(protocol_version_le);
+
+    let header = BrpHeader {
+        file_id,
+        protocol_version,
+    };
 
     if header.file_id != BRP_FILE_ID {
         return Err(BrpError::NotABrpFile.into());
