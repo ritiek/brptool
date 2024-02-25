@@ -9,6 +9,11 @@ edition = "2021"
 anyhow = "1"
 binrw = "0.11"
 thiserror = "1"
+tokio = { version = "1.32", features = ["full"], optional = true }
+
+[features]
+async = ["dep:tokio"]
 
 [dev-dependencies]
 clap = { version = "4", features = ["derive"] }
+tokio = { version = "1.32", features = ["full"] }
